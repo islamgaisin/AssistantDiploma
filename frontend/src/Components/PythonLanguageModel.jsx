@@ -3,41 +3,32 @@ import './PythonLanguageModel.css';
 import { Parser } from "html-to-react";
 
 const PythonLanguageModel = () => {
-// State to store the input from the user
 const [input, setInput] = useState('');
 const [index, setIndex] = useState(0);
 const [message, setMessage] = useState("");
-// State to store the responses/messages
 const [responses, setResponses] = useState([]);
-// Ref to manage the WebSocket connection
 const ws = useRef(null);
-// Ref to scroll to the latest message
 const messagesEndRef = useRef(null);
-// Maximum number of attempts to reconnect
 const [reconnectAttempts, setReconnectAttempts] = useState(0);
 const maxReconnectAttempts = 5;
 
-// Function to setup the WebSocket connection and define event handlers
 const setupWebSocket = () => {
     ws.current = new WebSocket('ws://127.0.0.1:8000/ws/chat/');
-    let ongoingStream = null; // To track the ongoing stream's ID
+    let ongoingStream = null;
 
     ws.current.onopen = () => {
         console.log("WebSocket connected!");
-        setReconnectAttempts(0); // Reset reconnect attempts on successful connection
+        setReconnectAttempts(0);
     };
 
     ws.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
         let sender = data.name;
 
-        // Handle different types of events from the WebSocket
         if (data.event === 'on_parser_start') {
-            // When a new stream starts
             ongoingStream = { id: data.run_id, content: '' };
             setResponses(prevResponses => [...prevResponses, { sender, message: '', id: data.run_id }]);
         } else if (data.event === 'on_parser_stream' && ongoingStream && data.run_id === ongoingStream.id) {
-            // During a stream, appending new chunks of data
             setResponses(prevResponses => prevResponses.map(msg =>
                 msg.id === data.run_id ? { ...msg, message: msg.message + data.data.chunk } : msg));
         }
@@ -53,35 +44,31 @@ const setupWebSocket = () => {
     };
 };
 
-// Function to handle reconnection attempts with exponential backoff
 const handleReconnect = () => {
     if (reconnectAttempts < maxReconnectAttempts) {
-        let timeout = Math.pow(2, reconnectAttempts) * 1000; // Exponential backoff
+        let timeout = Math.pow(2, reconnectAttempts) * 1000;
         setTimeout(() => {
-            setupWebSocket(); // Attempt to reconnect
+            setupWebSocket();
         }, timeout);
     } else {
         console.log("Max reconnect attempts reached, not attempting further reconnects.");
     }
 };
 
-// Effect hook to setup and cleanup the WebSocket connection
 useEffect(() => {
-    setupWebSocket(); // Setup WebSocket on component mount
+    setupWebSocket();
 
     return () => {
         if (ws.current.readyState === WebSocket.OPEN) {
-            ws.current.close(); // Close WebSocket on component unmount
+            ws.current.close();
         }
     };
 }, []);
 
-// Effect hook to auto-scroll to the latest message
 useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 }, [responses]);
 
-// Function to render each message
 const renderMessage = (response, index) => (
     <div key={index} className={`message ${response.sender}`}>
     <div className="border-container">
@@ -100,26 +87,12 @@ const renderMessage = (response, index) => (
 
 );
 
-// Handler for input changes
 const handleInputChange = (e) => {
     setInput(e.target.value);
 };
 
-
-const answers = [
-    "first",
-    "second",
-    "third",
-    "fourth",
-    "fifth"
-]
-
-// Handler for form submission
 const handleSubmit = (e) => {
     e.preventDefault();
-    if (index === 4){
-        setIndex(() => 0);
-    }
     if (input === ""){
         alert("Запрос не может быть пустым!");
         return;
@@ -129,8 +102,8 @@ const handleSubmit = (e) => {
     setIndex((prev) => prev + 1);
     setInput("");
     setResponses(prevResponses => [...prevResponses, userMessage]);
-    ws.current.send(JSON.stringify({ message: input })); // Send message through WebSocket
-    setInput(''); // Clear input field
+    ws.current.send(JSON.stringify({ message: input }));
+    setInput('');
 };
 
 return (

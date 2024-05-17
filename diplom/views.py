@@ -1,7 +1,10 @@
 from django.shortcuts import render
+import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+from .train import build_chain, create_database
 
-# Create your views here.
+chain = build_chain()
+database = create_database()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -11,4 +14,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         pass
 
     async def receive(self, text_data):
-        pass
+        message = json.loads(text_data)["message"]
+        try:
+            relevants = database.similarity_search(message)
+            doc = relevants[0].dict()['metadata']
+            answer = chain.run(doc)
+            await self.send(text_data=answer)
+
+        except Exception as e:
+            print(e)
